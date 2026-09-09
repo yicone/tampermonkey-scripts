@@ -16,6 +16,8 @@
 // @match        https://aistudio.google.com/*
 // @match        https://claude.ai/*
 // @match        https://grok.com/*
+// @match        https://www.google.com/*
+// @match        https://google.com/*
 // @noframes
 // @grant        GM_addStyle
 // @grant        GM_setValue

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         多模型同时回答 & 目录导航
 // @namespace    http://tampermonkey.net/
-// @version      5.2.6-local.7
+// @version      5.2.6-local.8
 // @description  一键自动同时在各家大模型官网提问，免去复制粘贴的麻烦；提供历次提问、回答细节的目录导航，方便快速定位。支持范围：DS，Kimi，千问，豆包，元宝，ChatGPT，Gemini，Claude，Grok 等
 // @author       interest2
 // @match        https://chat.deepseek.com/*
@@ -16,6 +16,8 @@
 // @match        https://aistudio.google.com/*
 // @match        https://claude.ai/*
 // @match        https://grok.com/*
+// @match        https://www.google.com/*
+// @match        https://google.com/*
 // @noframes
 // @grant        GM_addStyle
 // @grant        GM_setValue
@@ -61,10 +63,11 @@
     const STUDIO = 13;
     const CLAUDE = 14;
     const GROK = 15;
+    const AIMODE = 16;
 
     // 输入框类型分类
     const inputAreaTypes = {
-        textarea: [DEEPSEEK, QWEN, STUDIO],
+        textarea: [DEEPSEEK, QWEN, STUDIO, AIMODE],
         lexical: [KIMI, TONGYI, CHATGPT, ZCHAT, GEMINI, CLAUDE, GROK, YUANBAO, DOUBAO]
     };
 
@@ -105,6 +108,15 @@
             || getContenteditableInput();
     }
 
+    function getGoogleAiInput() {
+        // Google AI Mode 输入框；选择器过期时改这里和 lib/site-adapters.mjs
+        const textareas = document.querySelectorAll('textarea.ITIRGe, textarea[placeholder*="提问"], textarea[placeholder*="Ask"], textarea.gLFyf, textarea[name="q"]');
+        for (const ta of textareas) {
+            if (ta.offsetHeight > 0) return ta;
+        }
+        return getTextareaInput();
+    }
+
     // 选择器配置
     const selectors = {
         // 输入框分两类处理
@@ -112,7 +124,8 @@
             ...Object.fromEntries(inputAreaTypes.textarea.map(site => [site, getTextareaInput])),
             ...Object.fromEntries(inputAreaTypes.lexical.map(site => [site, getContenteditableInput])),
             [DOUBAO]: getDoubaoInput,
-            [TONGYI]: getQianwenInput
+            [TONGYI]: getQianwenInput,
+            [AIMODE]: getGoogleAiInput
         },
         // 已提问的列表（官网样式变更不会影响同步提问功能，只影响目录功能）
         questionList: {
@@ -128,7 +141,8 @@
             [GEMINI]: () => document.getElementsByClassName('query-text'),
             [STUDIO]: () => document.querySelectorAll('[data-turn-role="User"]'),
             [CLAUDE]: () => document.querySelectorAll('[data-testid="user-message"]'),
-            [GROK]: () => document.querySelectorAll('div.items-end .message-bubble')
+            [GROK]: () => document.querySelectorAll('div.items-end .message-bubble'),
+            [AIMODE]: () => document.querySelectorAll('.sUKAcb')
         }
     };
 
@@ -190,7 +204,11 @@
         "gemini": GEMINI,
         "aistudio": STUDIO,
         "claude": CLAUDE,
-        "grok": GROK
+        "grok": GROK,
+        "udm=50": AIMODE,
+        "atvm=": AIMODE,
+        "google.com/ai": AIMODE,
+        "google.com/aimode": AIMODE
     };
 
     // 各家大模型的网址（新对话，历史对话的前缀）
@@ -207,7 +225,8 @@
         [STUDIO]: ["https://aistudio.google.com/"],
         [QWEN]: ["https://chat.qwen.ai/"],
         [CLAUDE]: ["https://claude.ai/chat"],
-        [GROK]: ["https://grok.com/"]
+        [GROK]: ["https://grok.com/"],
+        [AIMODE]: ["https://www.google.com/search?udm=50"]
     };
 
     // 多选面板里，各站点的全称、简称
@@ -224,7 +243,8 @@
         { site: STUDIO, word: 'AI Studio', alias: 'A' },
         { site: CLAUDE, word: 'Claude', alias: 'Cl' },
         { site: GROK, word: 'Grok', alias: 'Gr' },
-        { site: ZCHAT, word: 'ZCHAT-GPT', alias: 'Z' }
+        { site: ZCHAT, word: 'ZCHAT-GPT', alias: 'Z' },
+        { site: AIMODE, word: 'AI Mode', alias: 'M' }
     ];
 
     // 过滤掉被禁用的站点
@@ -245,7 +265,8 @@
         [GEMINI]: 9,
         [STUDIO]: 11,
         [CLAUDE]: 6,
-        [GROK]: 10
+        [GROK]: 10,
+        [AIMODE]: 5
     };
 
     const newSites = Object.fromEntries(
@@ -253,7 +274,7 @@
     );
 
     // 表示当前站点的变量
-    let site = 0;
+    let site = -1;
     let currentUrl = getUrl();
 
     // 根据当前网址关键词，设置site值
@@ -264,9 +285,11 @@
         }
     }
 
-    // 检查当前站点是否被禁用
-    if (DISABLE_SITES.includes(site)) {
-        console.log(`站点 ${site} 已被禁用，脚本完全退出`);
+    // 检查当前站点是否有效或被禁用
+    if (site === -1 || DISABLE_SITES.includes(site)) {
+        if (DISABLE_SITES.includes(site)) {
+            console.log(`站点 ${site} 已被禁用，脚本完全退出`);
+        }
         return;
     }
 
@@ -1910,7 +1933,8 @@
         [GEMINI]: "310px",
         [STUDIO]: "10px",
         [CLAUDE]: "290px",
-        [GROK]: "255px"
+        [GROK]: "255px",
+        [AIMODE]: "260px"
     };
 
     const subNavMinWidth = "170px";
@@ -5585,9 +5609,9 @@
         const leftColumn = createTag('div', '', 'flex:1');
         const rightColumn = createTag('div', '', 'flex:1');
 
-        // 将 wordConfig 分为前6个和后6个
-        const firstHalf = wordConfig.slice(0, 6);
-        const secondHalf = wordConfig.slice(6);
+        // 将 wordConfig 分为前MODEL_GROUP_INDEX个和后面的
+        const firstHalf = wordConfig.slice(0, MODEL_GROUP_INDEX);
+        const secondHalf = wordConfig.slice(MODEL_GROUP_INDEX);
 
         // 创建复选框函数
         function createModelCheckbox(config) {
@@ -5780,9 +5804,9 @@
         const leftColumn = createTag('div', '', 'flex:1');
         const rightColumn = createTag('div', '', 'flex:1');
 
-        // 将 wordConfig 分为前6个和后6个
-        const firstHalf = wordConfig.slice(0, 6);
-        const secondHalf = wordConfig.slice(6);
+        // 将 wordConfig 分为前MODEL_GROUP_INDEX个和后面的
+        const firstHalf = wordConfig.slice(0, MODEL_GROUP_INDEX);
+        const secondHalf = wordConfig.slice(MODEL_GROUP_INDEX);
 
         // 立即保存层级配置的函数
         function saveLevelsImmediately() {

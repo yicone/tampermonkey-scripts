@@ -140,7 +140,27 @@ async function probeQianwen(page, adapter, results) {
   pass(results, "qianwen.composer", { rawText: state.rawText, plainText: "" });
 }
 
-const task = await taskSpace("probe doubao qianwen adapters");
+async function probeAimode(page, adapter, results) {
+  await page.goto(adapter.url, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForSelector(adapter.composer, { timeout: 15000, state: "visible" });
+
+  const state = await page.evaluate((sel) => {
+    const ta = document.querySelector(sel);
+    return {
+      hasTextarea: !!ta,
+      tag: ta ? ta.tagName : null,
+      val: ta ? ta.value : "",
+    };
+  }, adapter.composer);
+
+  if (!state.hasTextarea || state.tag !== "TEXTAREA") {
+    fail(results, "aimode.composer", "composer textarea not found", state);
+    return;
+  }
+  pass(results, "aimode.composer", { visible: true });
+}
+
+const task = await taskSpace("probe doubao qianwen aimode adapters");
 const results = [];
 try {
   const doubao = task.page("p1");
@@ -148,6 +168,9 @@ try {
 
   const qianwen = await task.newPage();
   await probeQianwen(qianwen, siteAdapters.qianwen, results);
+
+  const aimode = await task.newPage();
+  await probeAimode(aimode, siteAdapters.aimode, results);
 } finally {
   const failed = results.filter((item) => !item.ok);
   console.log(JSON.stringify({ spaceId: task.spaceId, results, failed: failed.length }, null, 2));

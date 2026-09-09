@@ -11,4 +11,9 @@ export const siteAdapters = {
     url: "https://www.qianwen.com/",
     composer: '[contenteditable="true"][role="textbox"]',
   },
+  aimode: {
+    id: "aimode",
+    url: "https://www.google.com/search?udm=50",
+    composer: 'textarea.ITIRGe',
+  },
 };
