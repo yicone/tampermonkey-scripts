@@ -11,6 +11,8 @@ Do not use superpowers spec / plan / reviewer loops for ordinary script work. Th
 - `scripts/<id>/AGENTS.md` — UUID, `@match`, section map, script-specific pitfalls
 - `tools/serve.mjs` — static server
 - `tools/tm-push.sh` — write a file into Ego Tampermonkey
+- `tools/probe-adapters.sh` — Ego canary: Doubao/Qianwen composer + send button, no real send
+- `tests/` — Node tests for sync rules; selectors must stay in `script.user.js`
 
 ## Ego debug loop
 
@@ -31,6 +33,15 @@ Do not use superpowers spec / plan / reviewer loops for ordinary script work. Th
 4. If the page still runs old code: confirm the server is up, then `tools/tm-push.sh --mode=full --script=<id>`, reload, verify. Then `--mode=loader` again unless you explicitly stay on that frozen full copy.
 
 5. Need login? `handOff` in ego-browser. Missing UI is not a code bug until `@match`, TM enabled, login, and the script boot log have been checked.
+
+## Tests
+
+```sh
+npm test
+tools/probe-adapters.sh
+```
+
+`npm test` does not open a browser. The probe only checks Doubao and Qianwen adapters (composer found, Doubao send button appears after insert, Qianwen placeholder reads as empty). It must not click send.
 
 ## Dia publish
 

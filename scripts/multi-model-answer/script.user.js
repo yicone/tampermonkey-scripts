@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         多模型同时回答 & 目录导航
 // @namespace    http://tampermonkey.net/
-// @version      5.2.6-local.6
+// @version      5.2.6-local.7
 // @description  一键自动同时在各家大模型官网提问，免去复制粘贴的麻烦；提供历次提问、回答细节的目录导航，方便快速定位。支持范围：DS，Kimi，千问，豆包，元宝，ChatGPT，Gemini，Claude，Grok 等
 // @author       interest2
 // @match        https://chat.deepseek.com/*
@@ -554,11 +554,6 @@
         }
     }
 
-    function sameQuestionText(a, b) {
-        const norm = (s) => (s || '').replace(/\s+/g, '').trim();
-        return (a || '').trim() === (b || '').trim() || norm(a) === norm(b);
-    }
-
     /**
      * 模拟回车发送（公共函数）
      */
@@ -879,40 +874,46 @@
      * ═══════════════════════════════════════════════════════════════════════
      ******************************************************************************/
 
-    // 检查事件是否带有修饰键
-    const hasModifierKey = (event) => event.shiftKey || event.ctrlKey || event.altKey || event.metaKey;
+    // <testable-sync-logic>
+    function sameQuestionText(a, b) {
+        const norm = (s) => (s || '').replace(/\s+/g, '').trim();
+        return (a || '').trim() === (b || '').trim() || norm(a) === norm(b);
+    }
 
-    // 判断是否触发回车发送
-    const isEnterTrigger = (event) => {
+    function hasModifierKey(event) {
+        return event.shiftKey || event.ctrlKey || event.altKey || event.metaKey;
+    }
+
+    function isEnterSend(event, needModifier) {
         if (event.isComposing || event.keyCode === 229) {
             return false;
         }
-        if (needModifierForEnter()) {
+        if (needModifier) {
             return event.key === 'Enter' && (event.ctrlKey || event.metaKey);
-        } else {
-            // 单纯的 Enter 键，不带任何修饰键
-            return event.key === 'Enter' && !hasModifierKey(event);
         }
-    };
+        return event.key === 'Enter' && !hasModifierKey(event);
+    }
 
     // lexical/Slate 空输入框常把占位符放在 contenteditable=false 的覆盖层里，
     // 直接读 textContent 会把占位符当成已输入内容
     function getLexicalPlainText(inputArea) {
         if (!inputArea) return '';
+        const doc = inputArea.ownerDocument || document;
+        const Filter = (doc.defaultView && doc.defaultView.NodeFilter) || NodeFilter;
         const placeholder = (
             inputArea.getAttribute('data-placeholder') ||
             inputArea.getAttribute('placeholder') ||
             ''
         ).trim();
 
-        const walker = document.createTreeWalker(inputArea, NodeFilter.SHOW_TEXT, {
+        const walker = doc.createTreeWalker(inputArea, Filter.SHOW_TEXT, {
             acceptNode(node) {
                 const parent = node.parentElement;
-                if (!parent) return NodeFilter.FILTER_REJECT;
-                if (parent.closest('[contenteditable="false"]')) return NodeFilter.FILTER_REJECT;
-                if (parent.closest('[data-slate-placeholder="true"]')) return NodeFilter.FILTER_REJECT;
-                if (parent.hasAttribute('data-slate-zero-width')) return NodeFilter.FILTER_REJECT;
-                return NodeFilter.FILTER_ACCEPT;
+                if (!parent) return Filter.FILTER_REJECT;
+                if (parent.closest('[contenteditable="false"]')) return Filter.FILTER_REJECT;
+                if (parent.closest('[data-slate-placeholder="true"]')) return Filter.FILTER_REJECT;
+                if (parent.hasAttribute('data-slate-zero-width')) return Filter.FILTER_REJECT;
+                return Filter.FILTER_ACCEPT;
             }
         });
         let text = '';
@@ -926,6 +927,9 @@
         }
         return text;
     }
+    // </testable-sync-logic>
+
+    const isEnterTrigger = (event) => isEnterSend(event, needModifierForEnter());
 
     // 根据输入框类型获取内容
     function getInputContent(inputArea) {
@@ -954,6 +958,7 @@
     let isSendingByEnter = false;        // 是否通过回车键发送，避免重复触发
     let isProcessingMouseUp = false;     // 是否正在处理 mouseup 检测
     let mouseEventListenerAdded = false; // 是否已添加鼠标监听器
+    let adapterHealthLogged = false;
     const ADD_LISTENER_RETRY_DELAY = 200;
     const ADD_LISTENER_MAX_RETRIES = 100; // 最大重试次数
 
@@ -1085,6 +1090,24 @@
         }
     }
 
+    function logAdapterHealth(inputArea) {
+        if (adapterHealthLogged) return;
+        adapterHealthLogged = true;
+        const details = {
+            site,
+            composer: !!inputArea,
+            composerTag: inputArea && inputArea.tagName,
+            composerClass: inputArea && (inputArea.className || '').toString().slice(0, 80)
+        };
+        if (site === DOUBAO) {
+            details.sendWrapper = !!document.querySelector('.send-btn-wrapper');
+        }
+        if (site === TONGYI) {
+            details.composerEmpty = getLexicalPlainText(inputArea) === '';
+        }
+        console.log("ai script, adapter", details);
+    }
+
     function addAskEventListener(retryCount = 0) {
         const inputArea = getInputArea();
 
@@ -1097,6 +1120,8 @@
             setTimeout(() => addAskEventListener(retryCount + 1), ADD_LISTENER_RETRY_DELAY);
             return;
         }
+
+        logAdapterHealth(inputArea);
 
         // 增加 MutationObserver 兜底
         const observer = new MutationObserver(() => {
@@ -1187,6 +1212,7 @@
 
         mouseEventListenerAdded = false;
         inputAreaListenerAdded = false;
+        adapterHealthLogged = false;
 
         // URL 变化时隐藏副目录
         if (typeof hideSubNavBar === 'function') {

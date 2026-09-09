@@ -16,7 +16,14 @@ Replace this UUID in place with the loader. Do not install a second copy in Ego.
 
 `chat.deepseek.com`, `www.kimi.com`, `www.qianwen.com`, `chat.qwen.ai`, `www.doubao.com`, `yuanbao.tencent.com`, `chat.zchat.tech`, `chatgpt.com`, `gemini.google.com`, `aistudio.google.com`, `claude.ai`, `grok.com`.
 
-Boot log: `ai script, start`. No log on a matching URL means the script did not run (TM disabled, loader/`@require` failed, or server down).
+Boot log: `ai script, start`. After the composer appears: `ai script, adapter`. No start log on a matching URL means the script did not run (TM disabled, loader/`@require` failed, or server down).
+
+Selectors for Doubao/Qianwen probes live in `lib/site-adapters.mjs`. Keep the same strings in `script.user.js`. Sync helpers under `// <testable-sync-logic>` are loaded by `npm test`.
+
+```sh
+npm test
+tools/probe-adapters.sh
+```
 
 Ego Lite may have no login cookies. Hand off for login before treating a missing panel as a regression.
 
