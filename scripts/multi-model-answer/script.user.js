@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         多模型同时回答 & 目录导航
 // @namespace    http://tampermonkey.net/
-// @version      5.2.6-local.8
+// @version      5.2.6-local.9
 // @description  一键自动同时在各家大模型官网提问，免去复制粘贴的麻烦；提供历次提问、回答细节的目录导航，方便快速定位。支持范围：DS，Kimi，千问，豆包，元宝，ChatGPT，Gemini，Claude，Grok 等
 // @author       interest2
 // @match        https://chat.deepseek.com/*
@@ -74,8 +74,8 @@
     // lexical 输入框，某些站点直接设置 textContent 不会触发框架的响应式更新，
     // 必须通过派发 ClipboardEvent paste 事件来注入内容的站点
     const CLIPBOARD_PASTE_SITES = [TONGYI, KIMI];
-    // 豆包已从 textarea 换成 ProseMirror，合成 paste / 直接改 textContent 都不会进入编辑器状态
-    const EXEC_COMMAND_INSERT_SITES = [DOUBAO];
+    // 豆包和 Grok 使用 ProseMirror/Tiptap，合成 paste / 直接改 textContent 都不会进入编辑器状态
+    const EXEC_COMMAND_INSERT_SITES = [DOUBAO, GROK];
 
     // 通用输入框选择器，两类：textarea标签、lexical
     const getContenteditableInput = () => document.querySelector('[contenteditable="true"]:has(p)');
@@ -97,6 +97,26 @@
             const btn = wrapper.querySelector('button');
             if (!btn) continue;
             if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') continue;
+            return btn;
+        }
+        return null;
+    }
+
+    function getGrokInput() {
+        // Grok 使用 Tiptap/ProseMirror；选择器过期时改这里和 lib/site-adapters.mjs
+        const editors = document.querySelectorAll('.tiptap.ProseMirror[contenteditable="true"], .ProseMirror[contenteditable="true"], [contenteditable="true"][role="textbox"]');
+        for (const editor of editors) {
+            if (editor.offsetHeight > 0) return editor;
+        }
+        if (editors.length > 0) return editors[0];
+        return getContenteditableInput() || getTextareaInput();
+    }
+
+    function getGrokSendButton() {
+        const btn = document.querySelector('button[aria-label="Submit"]')
+            || document.querySelector('button[type="submit"]')
+            || document.querySelector('button[aria-label="Send"]');
+        if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') {
             return btn;
         }
         return null;
@@ -125,7 +145,8 @@
             ...Object.fromEntries(inputAreaTypes.lexical.map(site => [site, getContenteditableInput])),
             [DOUBAO]: getDoubaoInput,
             [TONGYI]: getQianwenInput,
-            [AIMODE]: getGoogleAiInput
+            [AIMODE]: getGoogleAiInput,
+            [GROK]: getGrokInput
         },
         // 已提问的列表（官网样式变更不会影响同步提问功能，只影响目录功能）
         questionList: {
@@ -595,6 +616,13 @@
                 return;
             }
         }
+        if (site === GROK) {
+            const sendBtn = getGrokSendButton();
+            if (sendBtn) {
+                sendBtn.click();
+                return;
+            }
+        }
         const needModifier = needModifierForEnter();
         const event = new KeyboardEvent('keydown', {
             key: 'Enter',
@@ -626,6 +654,14 @@
                 }
                 if (!getDoubaoSendButton()) {
                     console.warn("未找到豆包发送按钮，回退到回车事件");
+                }
+            } else if (site === GROK) {
+                const sendWaitStart = Date.now();
+                while (!getGrokSendButton() && Date.now() - sendWaitStart < 5000) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                if (!getGrokSendButton()) {
+                    console.warn("未找到Grok发送按钮，回退到回车事件");
                 }
             }
 
@@ -725,7 +761,7 @@
         editor.dispatchEvent(event);
     }
 
-    function insertDoubaoContent(editor, content) {
+    function insertProseMirrorContent(editor, content) {
         const wanted = (content || '').trim();
         const tiptap = editor && editor.editor;
         if (tiptap && tiptap.commands) {
@@ -753,6 +789,7 @@
         selection.addRange(range);
         document.execCommand('insertText', false, content);
     }
+    const insertDoubaoContent = insertProseMirrorContent;
 
     /**
      * 输入框粘贴提问内容
@@ -766,7 +803,7 @@
                    if (CLIPBOARD_PASTE_SITES.includes(site)) {
                         dispatchPasteEvent(editor, content);
                     } else if (EXEC_COMMAND_INSERT_SITES.includes(site)) {
-                        insertDoubaoContent(editor, content);
+                        insertProseMirrorContent(editor, content);
                     } else {
                         editor.textContent = content;
                     }
@@ -1127,6 +1164,9 @@
         };
         if (site === DOUBAO) {
             details.sendWrapper = !!document.querySelector('.send-btn-wrapper');
+        }
+        if (site === GROK) {
+            details.sendButton = !!getGrokSendButton();
         }
         if (site === TONGYI) {
             details.composerEmpty = getLexicalPlainText(inputArea) === '';

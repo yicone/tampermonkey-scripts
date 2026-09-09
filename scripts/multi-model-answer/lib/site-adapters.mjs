@@ -16,4 +16,9 @@ export const siteAdapters = {
     url: "https://www.google.com/search?udm=50",
     composer: 'textarea.ITIRGe',
   },
+  grok: {
+    id: "grok",
+    url: "https://grok.com/",
+    composer: '.tiptap.ProseMirror[contenteditable="true"]',
+  },
 };

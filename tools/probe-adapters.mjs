@@ -160,7 +160,78 @@ async function probeAimode(page, adapter, results) {
   pass(results, "aimode.composer", { visible: true });
 }
 
-const task = await taskSpace("probe doubao qianwen aimode adapters");
+async function probeGrok(page, adapter, results) {
+  await page.goto(adapter.url, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await page.waitForSelector(adapter.composer, { timeout: 15000, state: "visible" });
+
+  const before = await page.evaluate((sel) => {
+    const editor = [...document.querySelectorAll(sel)].find((el) => el.offsetHeight > 0)
+      || document.querySelector(sel);
+    return {
+      hasEditor: !!editor,
+      text: editor ? (editor.innerText || "").trim() : "",
+    };
+  }, adapter.composer);
+
+  if (!before.hasEditor) {
+    fail(results, "grok.composer", "composer not found", before);
+    return;
+  }
+
+  const afterInsert = await page.evaluate((sel) => {
+    const editor = [...document.querySelectorAll(sel)].find((el) => el.offsetHeight > 0)
+      || document.querySelector(sel);
+    editor.focus();
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.execCommand("insertText", false, "probe-do-not-send");
+    return { text: (editor.innerText || "").trim() };
+  }, adapter.composer);
+
+  if (!afterInsert.text.includes("probe-do-not-send")) {
+    fail(results, "grok.insert", "could not insert probe text", afterInsert);
+    return;
+  }
+
+  try {
+    await page.waitForFunction(() => {
+      const btn = document.querySelector('button[aria-label="Submit"]')
+        || document.querySelector('button[type="submit"]')
+        || document.querySelector('button[aria-label="Send"]');
+      return !!(btn && !btn.disabled && btn.getAttribute("aria-disabled") !== "true");
+    }, undefined, { timeout: 5000 });
+    pass(results, "grok.sendButton", { sendReady: true });
+  } catch (error) {
+    fail(results, "grok.sendButton", "send button not ready after insert");
+  }
+
+  await page.evaluate((sel) => {
+    const editor = [...document.querySelectorAll(sel)].find((el) => el.offsetHeight > 0)
+      || document.querySelector(sel);
+    editor.focus();
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.execCommand("delete", false, null);
+  }, adapter.composer);
+
+  const cleared = await page.evaluate((sel) => {
+    const editor = document.querySelector(sel);
+    return (editor && editor.innerText || "").trim();
+  }, adapter.composer);
+  if (cleared.includes("probe-do-not-send")) {
+    fail(results, "grok.clear", "probe text still in composer; did not click send", { cleared });
+  } else {
+    pass(results, "grok.composer", { cleared: true, didNotSend: true });
+  }
+}
+
+const task = await taskSpace("probe doubao qianwen aimode grok adapters");
 const results = [];
 try {
   const doubao = task.page("p1");
@@ -171,6 +242,9 @@ try {
 
   const aimode = await task.newPage();
   await probeAimode(aimode, siteAdapters.aimode, results);
+
+  const grok = await task.newPage();
+  await probeGrok(grok, siteAdapters.grok, results);
 } finally {
   const failed = results.filter((item) => !item.ok);
   console.log(JSON.stringify({ spaceId: task.spaceId, results, failed: failed.length }, null, 2));
