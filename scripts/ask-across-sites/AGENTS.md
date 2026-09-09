@@ -1,6 +1,6 @@
 # 多站同问 / Ask Across Sites
 
-Directory id: `ask-across-sites`. Fork of Greasy Fork [537302](https://greasyfork.org/scripts/537302) by `interest2`, baseline `5.2.6`. Public `@name` is `多站同问` with `@name:en Ask Across Sites`. Current version is the `@version` in `script.user.js`.
+Directory id: `ask-across-sites`. Fork of Greasy Fork [537302](https://greasyfork.org/scripts/537302) by `interest2`, baseline `5.2.6`. This listing: [595104 多站同问](https://greasyfork.org/scripts/595104). Public `@name` is `多站同问` with `@name:en Ask Across Sites`. Current version is the `@version` in `script.user.js`.
 
 `TONGYI` in code is `www.qianwen.com` (千问). `QWEN` is `chat.qwen.ai`.
 

@@ -2,7 +2,7 @@
 // @name         多站同问
 // @name:en      Ask Across Sites
 // @namespace    https://github.com/yicone/tampermonkey-scripts
-// @version      1.0.0
+// @version      1.0.1
 // @description  在多家对话 AI 官网同步提交同一句提问，并提供提问与回答的目录导航。感谢 interest2 的上游脚本「多模型同时回答 & 目录导航」：https://greasyfork.org/scripts/537302
 // @description:en Submit the same prompt across conversational AI sites, with a table of contents for questions and answers. Thanks to interest2's upstream script: https://greasyfork.org/scripts/537302
 // @author       yicone
@@ -29,6 +29,8 @@
 // @grant        GM_deleteValue
 // @grant        GM_addValueChangeListener
 // @license      MIT
+// @downloadURL  https://update.greasyfork.org/scripts/595104/%E5%A4%9A%E7%AB%99%E5%90%8C%E9%97%AE.user.js
+// @updateURL    https://update.greasyfork.org/scripts/595104/%E5%A4%9A%E7%AB%99%E5%90%8C%E9%97%AE.meta.js
 // ==/UserScript==
 
 (function () {
