@@ -17,6 +17,21 @@ describe("site adapter selectors stay in the userscript", () => {
   }
 });
 
+describe("bundled site icons cover every panel model", () => {
+  const source = fs.readFileSync(USERSCRIPT_PATH, "utf8");
+  const sites = [...source.matchAll(/\{ site: (\w+), word:/g)].map((m) => m[1]);
+
+  it("finds the panel wordConfig sites", () => {
+    assert.ok(sites.length >= 10, `expected panel sites, got ${sites.join(",")}`);
+  });
+
+  for (const site of sites) {
+    it(`embeds a data-URI icon for ${site}`, () => {
+      assert.match(source, new RegExp(`\\[${site}\\]: "data:image/svg\\+xml,`));
+    });
+  }
+});
+
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
