@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         多模型同时回答 & 目录导航
 // @namespace    http://tampermonkey.net/
-// @version      5.2.6
+// @version      5.2.6-local.6
 // @description  一键自动同时在各家大模型官网提问，免去复制粘贴的麻烦；提供历次提问、回答细节的目录导航，方便快速定位。支持范围：DS，Kimi，千问，豆包，元宝，ChatGPT，Gemini，Claude，Grok 等
 // @author       interest2
 // @match        https://chat.deepseek.com/*
@@ -23,8 +23,6 @@
 // @grant        GM_deleteValue
 // @grant        GM_addValueChangeListener
 // @license      MIT
-// @downloadURL https://update.greasyfork.org/scripts/537302/%E5%A4%9A%E6%A8%A1%E5%9E%8B%E5%90%8C%E6%97%B6%E5%9B%9E%E7%AD%94%20%20%E7%9B%AE%E5%BD%95%E5%AF%BC%E8%88%AA.user.js
-// @updateURL https://update.greasyfork.org/scripts/537302/%E5%A4%9A%E6%A8%A1%E5%9E%8B%E5%90%8C%E6%97%B6%E5%9B%9E%E7%AD%94%20%20%E7%9B%AE%E5%BD%95%E5%AF%BC%E8%88%AA.meta.js
 // ==/UserScript==
 
 (function () {
@@ -66,29 +64,59 @@
 
     // 输入框类型分类
     const inputAreaTypes = {
-        textarea: [DEEPSEEK, DOUBAO, QWEN, STUDIO],
-        lexical: [KIMI, TONGYI, CHATGPT, ZCHAT, GEMINI, CLAUDE, GROK, YUANBAO]
+        textarea: [DEEPSEEK, QWEN, STUDIO],
+        lexical: [KIMI, TONGYI, CHATGPT, ZCHAT, GEMINI, CLAUDE, GROK, YUANBAO, DOUBAO]
     };
 
     // lexical 输入框，某些站点直接设置 textContent 不会触发框架的响应式更新，
     // 必须通过派发 ClipboardEvent paste 事件来注入内容的站点
     const CLIPBOARD_PASTE_SITES = [TONGYI, KIMI];
+    // 豆包已从 textarea 换成 ProseMirror，合成 paste / 直接改 textContent 都不会进入编辑器状态
+    const EXEC_COMMAND_INSERT_SITES = [DOUBAO];
 
     // 通用输入框选择器，两类：textarea标签、lexical
     const getContenteditableInput = () => document.querySelector('[contenteditable="true"]:has(p)');
+
+    function getDoubaoInput() {
+        const editors = document.querySelectorAll('.tiptap.ProseMirror[contenteditable="true"]');
+        for (const editor of editors) {
+            if (editor.offsetHeight > 0) return editor;
+        }
+        if (editors.length > 0) return editors[0];
+        return getContenteditableInput() || getTextareaInput();
+    }
+
+    // Tiptap commands.enter() 只换行，不会提交。首页/对话页都要点发送按钮。
+    function getDoubaoSendButton() {
+        const wrappers = document.querySelectorAll('.send-btn-wrapper');
+        for (const wrapper of wrappers) {
+            const btn = wrapper.querySelector('button');
+            if (!btn) continue;
+            if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') continue;
+            return btn;
+        }
+        return null;
+    }
+
+    function getQianwenInput() {
+        return document.querySelector('[contenteditable="true"][role="textbox"]')
+            || getContenteditableInput();
+    }
 
     // 选择器配置
     const selectors = {
         // 输入框分两类处理
         inputArea: {
             ...Object.fromEntries(inputAreaTypes.textarea.map(site => [site, getTextareaInput])),
-            ...Object.fromEntries(inputAreaTypes.lexical.map(site => [site, getContenteditableInput]))
+            ...Object.fromEntries(inputAreaTypes.lexical.map(site => [site, getContenteditableInput])),
+            [DOUBAO]: getDoubaoInput,
+            [TONGYI]: getQianwenInput
         },
         // 已提问的列表（官网样式变更不会影响同步提问功能，只影响目录功能）
         questionList: {
             [DEEPSEEK]: () => filterQuestions(document.getElementsByClassName("ds-message")),
             [KIMI]: () => document.getElementsByClassName("user-content"),
-            [TONGYI]: () => document.querySelectorAll('[class^="bubble-"]'),
+            [TONGYI]: () => document.querySelectorAll('.question-text-card'),
             [QWEN]: () => document.getElementsByClassName("user-message-content"),
             [DOUBAO]: () => Array.from(document.querySelectorAll('[data-testid="message_text_content"]')).filter(el => !el.children || el.children.length === 0),
             [YUANBAO]: () => document.querySelectorAll(".hyc-content-text"),
@@ -526,10 +554,26 @@
         }
     }
 
+    function sameQuestionText(a, b) {
+        const norm = (s) => (s || '').replace(/\s+/g, '').trim();
+        return (a || '').trim() === (b || '').trim() || norm(a) === norm(b);
+    }
+
     /**
      * 模拟回车发送（公共函数）
      */
     function enterKeySend(inputArea) {
+        // 用户已改写输入框时，禁止继续用回车劫持发送
+        if (lastQuestion && !sameQuestionText(getInputContent(inputArea), lastQuestion)) {
+            return;
+        }
+        if (site === DOUBAO) {
+            const sendBtn = getDoubaoSendButton();
+            if (sendBtn) {
+                sendBtn.click();
+                return;
+            }
+        }
         const needModifier = needModifierForEnter();
         const event = new KeyboardEvent('keydown', {
             key: 'Enter',
@@ -554,6 +598,16 @@
         try {
             await new Promise(resolve => setTimeout(resolve, 400));
 
+            if (site === DOUBAO) {
+                const sendWaitStart = Date.now();
+                while (!getDoubaoSendButton() && Date.now() - sendWaitStart < 5000) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                if (!getDoubaoSendButton()) {
+                    console.warn("未找到豆包发送按钮，回退到回车事件");
+                }
+            }
+
             // 模拟回车发送
             enterKeySend(inputArea);
 
@@ -566,11 +620,20 @@
         }
     }
 
+    function isQuestionPosted(question) {
+        if (isEmpty(question)) return false;
+        const list = getQuestionList();
+        return Array.from(list || []).some((el) => {
+            const text = (el.textContent || '').trim();
+            return text === question || text.endsWith(question);
+        });
+    }
+
     /**
      * 验证发送成功（输入框内容清空）
      */
     async function verifySendSuccess() {
-        const pollInterval = 1000;
+        let pollInterval = 1000;
         const maxPollTime = 20000;
         const startTime = Date.now();
         if(site === YUANBAO){
@@ -578,6 +641,10 @@
         }
 
         return new Promise((resolve) => {
+            const finish = () => {
+                sendLock = false;
+                resolve();
+            };
             function checkInputArea() {
                 const elapsed = Date.now() - startTime;
                 const inputArea = getInputArea();
@@ -585,21 +652,30 @@
 
                 // 输入框为空，表明发送成功
                 if (!areaContent || areaContent.trim() === '') {
-                    sendLock = false;
-                    resolve();
+                    finish();
+                    return;
+                }
+
+                // 用户已经改写/粘贴了别的内容，停止劫持回车
+                if (areaContent && lastQuestion && !sameQuestionText(areaContent, lastQuestion)) {
+                    console.log("输入框内容已变化，停止重试发送");
+                    finish();
+                    return;
+                }
+
+                // 原问题已经出现在对话里，视为发送成功
+                if (isQuestionPosted(lastQuestion)) {
+                    finish();
                     return;
                 }
 
                 // 超时，解锁并返回
                 if (elapsed >= maxPollTime) {
                     console.warn("发送验证超时，但可能已经成功发送");
-                    sendLock = false;
-                    resolve();
+                    finish();
                     return;
                 }
 
-
-                // 输入框仍有内容，继续模拟回车发送
                 if (inputArea) {
                     console.log(curDate() + "h3 重试发送");
                     enterKeySend(inputArea);
@@ -612,6 +688,51 @@
         });
     }
 
+    function dispatchPasteEvent(editor, content) {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.setData('text/plain', content);
+        const event = new ClipboardEvent('paste', {
+            bubbles: true,
+            cancelable: true,
+            composed: true
+        });
+        // Chrome 会忽略构造函数里的 clipboardData，必须再挂到事件对象上
+        Object.defineProperty(event, 'clipboardData', {
+            configurable: true,
+            value: dataTransfer
+        });
+        editor.dispatchEvent(event);
+    }
+
+    function insertDoubaoContent(editor, content) {
+        const wanted = (content || '').trim();
+        const tiptap = editor && editor.editor;
+        if (tiptap && tiptap.commands) {
+            if (typeof tiptap.commands.clearContent === 'function') {
+                tiptap.commands.clearContent();
+            }
+            if (typeof tiptap.commands.insertContent === 'function') {
+                tiptap.commands.insertContent(content);
+            }
+            if (getInputContent(editor) === wanted) {
+                return;
+            }
+        }
+
+        dispatchPasteEvent(editor, content);
+        if (getInputContent(editor) === wanted) {
+            return;
+        }
+
+        editor.focus();
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(editor);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        document.execCommand('insertText', false, content);
+    }
+
     /**
      * 输入框粘贴提问内容
      */
@@ -622,13 +743,9 @@
                 //  第一类（lexical）
                 if (inputAreaTypes.lexical.includes(site)) {
                    if (CLIPBOARD_PASTE_SITES.includes(site)) {
-                        const dataTransfer = new DataTransfer();
-                        dataTransfer.setData('text/plain', content);
-                        editor.dispatchEvent(new ClipboardEvent('paste', { 
-                            clipboardData: dataTransfer, 
-                            bubbles: true, 
-                            cancelable: true 
-                        }));
+                        dispatchPasteEvent(editor, content);
+                    } else if (EXEC_COMMAND_INSERT_SITES.includes(site)) {
+                        insertDoubaoContent(editor, content);
                     } else {
                         editor.textContent = content;
                     }
@@ -675,6 +792,10 @@
     const currentAskHasImage = "currentAskHasImage";
 
     document.addEventListener('paste', async (e) => {
+        // 用户真实粘贴时，立刻停止同步发送的回车重试，避免把新草稿发出去
+        if (sendLock && e.isTrusted) {
+            sendLock = false;
+        }
         if(getGV("disable") === true){
             return;
         }
@@ -763,6 +884,9 @@
 
     // 判断是否触发回车发送
     const isEnterTrigger = (event) => {
+        if (event.isComposing || event.keyCode === 229) {
+            return false;
+        }
         if (needModifierForEnter()) {
             return event.key === 'Enter' && (event.ctrlKey || event.metaKey);
         } else {
@@ -770,6 +894,38 @@
             return event.key === 'Enter' && !hasModifierKey(event);
         }
     };
+
+    // lexical/Slate 空输入框常把占位符放在 contenteditable=false 的覆盖层里，
+    // 直接读 textContent 会把占位符当成已输入内容
+    function getLexicalPlainText(inputArea) {
+        if (!inputArea) return '';
+        const placeholder = (
+            inputArea.getAttribute('data-placeholder') ||
+            inputArea.getAttribute('placeholder') ||
+            ''
+        ).trim();
+
+        const walker = document.createTreeWalker(inputArea, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                const parent = node.parentElement;
+                if (!parent) return NodeFilter.FILTER_REJECT;
+                if (parent.closest('[contenteditable="false"]')) return NodeFilter.FILTER_REJECT;
+                if (parent.closest('[data-slate-placeholder="true"]')) return NodeFilter.FILTER_REJECT;
+                if (parent.hasAttribute('data-slate-zero-width')) return NodeFilter.FILTER_REJECT;
+                return NodeFilter.FILTER_ACCEPT;
+            }
+        });
+        let text = '';
+        let node;
+        while ((node = walker.nextNode())) {
+            text += node.nodeValue || '';
+        }
+        text = text.replace(/[\uFEFF\u200B]/g, '').trim();
+        if (placeholder && text === placeholder) {
+            return '';
+        }
+        return text;
+    }
 
     // 根据输入框类型获取内容
     function getInputContent(inputArea) {
@@ -779,9 +935,9 @@
         if (inputAreaTypes.textarea.includes(site)) {
             return inputArea.value ? inputArea.value.trim() : '';
         }
-        // lexical 类型使用 .textContent
+        // lexical 类型使用可见文本，忽略占位符覆盖层
         else if (inputAreaTypes.lexical.includes(site)) {
-            return inputArea.textContent ? inputArea.textContent.trim() : '';
+            return getLexicalPlainText(inputArea);
         }
 
         return '';
@@ -851,10 +1007,15 @@
         pendingQuestion = currentContent; // 这里是给鼠标事件兜底用
     }
 
+    function isClickOnComposer(event) {
+        const inputArea = getInputArea();
+        return !!(inputArea && event.target && inputArea.contains(event.target));
+    }
+
     // mousedown 事件：记录输入框内容
     function handleMouseDown(event) {
-        // 如果点击位置位于网页左侧40%或上部10%，则return
-        if (isClickInIgnoredArea(event) || isProcessingMouseUp) {
+        // 点在输入框内部是改光标/选区，不是点发送
+        if (isClickInIgnoredArea(event) || isProcessingMouseUp || isClickOnComposer(event)) {
             return;
         }
         const inputArea = getInputArea();
@@ -873,49 +1034,34 @@
         }
     }
 
-    // mouseup 事件：延迟检测输入框是否清空
+    // mouseup 事件：只有本页对话里真正出现该问题，才视为发送并同步
     function handleMouseUp(event) {
-        // 如果点击位置位于网页左侧 40% 或上部 10%，则return
-        if (isClickInIgnoredArea(event) || isProcessingMouseUp) {
+        if (isClickInIgnoredArea(event) || isProcessingMouseUp || isClickOnComposer(event)) {
+            return;
+        }
+        if (isEmpty(pendingQuestion)) {
             return;
         }
         isProcessingMouseUp = true;
+        const pendingQuestionTemp = pendingQuestion;
+        const checkInterval = 200;
+        const checkTotal = 3000;
+        const checkStart = Date.now();
 
-        // 只有 up 前内容非空 才进行检测
-        if (isEmpty(pendingQuestion)) {
-            isProcessingMouseUp = false;
-        } else {
-            // 赋值给 temp 变量才行，（可能）是为了防止 pendingQuestion 在轮询开始前提前变空
-            let pendingQuestionTemp = pendingQuestion;
-            // 轮询检测输入框是否清空，每 200ms 检查一次，满足则提前结束
-            const checkInterval = 200;
-            const checkTotal = 2000;
-            const checkStart = Date.now();
-
-            const mouseUpTimer = setInterval(function() {
-                const inputArea = getInputArea();
-                let contentAfterUp = "";
-                if (!isEmpty(inputArea)) {
-                    contentAfterUp = getInputContent(inputArea);
-                }
-                if (!isEmpty(pendingQuestionTemp) && isEmpty(contentAfterUp)) {
-                    const questionToSend = pendingQuestionTemp;
-                    pendingQuestion = null;
-                    clearInterval(mouseUpTimer);
-                    setTimeout(function() {
-                        masterCheck(questionToSend);
-                    }, 100);
-                    isProcessingMouseUp = false;
-                    return;
-                }
-                if (Date.now() - checkStart >= checkTotal) {
-                    // 输入框未被清空，不是发送
-                    pendingQuestion = null;
-                    clearInterval(mouseUpTimer);
-                    isProcessingMouseUp = false;
-                }
-            }, checkInterval);
-        }
+        const mouseUpTimer = setInterval(function() {
+            if (isQuestionPosted(pendingQuestionTemp)) {
+                pendingQuestion = null;
+                clearInterval(mouseUpTimer);
+                isProcessingMouseUp = false;
+                masterCheck(pendingQuestionTemp);
+                return;
+            }
+            if (Date.now() - checkStart >= checkTotal) {
+                pendingQuestion = null;
+                clearInterval(mouseUpTimer);
+                isProcessingMouseUp = false;
+            }
+        }, checkInterval);
     }
 
     // keydown 事件：检测回车键发送
