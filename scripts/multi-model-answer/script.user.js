@@ -78,6 +78,7 @@
     const getContenteditableInput = () => document.querySelector('[contenteditable="true"]:has(p)');
 
     function getDoubaoInput() {
+        // 豆包已从 textarea 换成 Tiptap；选择器过期时改这里和 lib/site-adapters.mjs
         const editors = document.querySelectorAll('.tiptap.ProseMirror[contenteditable="true"]');
         for (const editor of editors) {
             if (editor.offsetHeight > 0) return editor;
@@ -99,6 +100,7 @@
     }
 
     function getQianwenInput() {
+        // 空输入常把「向千问提问」放在 contenteditable=false 覆盖层里，读内容用 getLexicalPlainText
         return document.querySelector('[contenteditable="true"][role="textbox"]')
             || getContenteditableInput();
     }
@@ -116,7 +118,7 @@
         questionList: {
             [DEEPSEEK]: () => filterQuestions(document.getElementsByClassName("ds-message")),
             [KIMI]: () => document.getElementsByClassName("user-content"),
-            [TONGYI]: () => document.querySelectorAll('.question-text-card'),
+            [TONGYI]: () => document.querySelectorAll('.question-text-card'), // 旧 [class^="bubble-"] 已失效
             [QWEN]: () => document.getElementsByClassName("user-message-content"),
             [DOUBAO]: () => Array.from(document.querySelectorAll('[data-testid="message_text_content"]')).filter(el => !el.children || el.children.length === 0),
             [YUANBAO]: () => document.querySelectorAll(".hyc-content-text"),
@@ -563,6 +565,7 @@
             return;
         }
         if (site === DOUBAO) {
+            // 不要用 editor.commands.enter()：那只换行。发送按钮选择器见 getDoubaoSendButton
             const sendBtn = getDoubaoSendButton();
             if (sendBtn) {
                 sendBtn.click();

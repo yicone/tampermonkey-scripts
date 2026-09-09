@@ -22,44 +22,26 @@ Boot: `ai script, start`, then `ai script, adapter` once a composer is found. No
 
 ## Tests
 
-Selectors for the Doubao/Qianwen probe live in `lib/site-adapters.mjs`. Keep those strings in `script.user.js`. Sync helpers under `// <testable-sync-logic>` are what `npm test` executes.
+Live composer/send selectors are in `lib/site-adapters.mjs` and must also appear in `script.user.js`. Sync helpers under `// <testable-sync-logic>` are what `npm test` executes. When a site layout changes, update those — not this file.
 
 ```sh
 npm test
 tools/probe-adapters.sh
 ```
 
-The probe must not click send. After a Doubao insert, wait for `.send-btn-wrapper button` — it is missing while the composer is empty.
+The probe must not click send. After inserting probe text, wait until the send control is enabled (it may be absent while the composer is empty). Login is not required for this probe.
 
-## Adapters (read before changing send/sync)
+## Sync rules
 
-**豆包** is Tiptap/ProseMirror, not a `<textarea>`. Composer: `.tiptap.ProseMirror[contenteditable="true"]`. `tiptap.commands.enter()` only inserts a newline. Submit by clicking `.send-btn-wrapper button` after the button is enabled. Chrome ignores `new ClipboardEvent({ clipboardData })`; hang clipboard data on the event with `defineProperty`.
+Do not treat “the composer went empty” or a click inside the composer as a send. Broadcast only after the question is in this page’s thread (`isQuestionPosted`), or a real Enter that is not IME composing. `verifySendSuccess` must not keep synthesizing Enter after the user has typed or pasted something else (trusted paste clears `sendLock`).
 
-**千问** composer: `[contenteditable="true"][role="textbox"]`. Empty `textContent` is often the overlay `向千问提问`. Read with `getLexicalPlainText` (skip `contenteditable="false"` / Slate placeholders). Question list: `.question-text-card` — the old `[class^="bubble-"]` matches nothing.
+Submit with each site’s real send path (see comments next to `getDoubaoInput` / `enterKeySend` / `getLexicalPlainText`). A generic Enter or editor `enter()` is not enough when the page uses a send button.
 
-Do not treat “input became empty” or a click inside the composer as a send. Broadcast only after `isQuestionPosted`, or a real Enter that is not IME (`isComposing` / `keyCode === 229`). `verifySendSuccess` used to retry Enter every 1s and would fire a later user paste; abort that lock on a trusted paste.
-
-Ego may have no login cookies. Hand off before treating a missing conversation as a regression. Logged-out Doubao can navigate to `?from_logout=1` after a programmatic send click.
+Login is only needed to verify a real send or chat history.
 
 ## `script.user.js` sections
 
-Line numbers drift; trust the banners.
-
-| # | Banner | Approx. lines |
-|---|--------|----------------|
-| 1 | 适配各站点相关代码 | 42–298 |
-| 2 | 一些函数和变量 | 299–445 |
-| 3 | 主从节点逻辑 | 446–519 |
-| 4 | 从节点异步轮询检查 | 520–762 |
-| 5 | 图片同步功能 | 763–869 |
-| 6 | 监听新的提问 | 870–1372 |
-| 7 | trusted HTML & 首次使用指引 | 1373–1470 |
-| 8 | 输入框的显示/隐藏切换 | 1471–1790 |
-| 9 | 目录导航功能 | 1791–3933 |
-| 10 | 多选面板 | 3934–4987 |
-| 11 | 一些工具函数 | 4988–5483 |
-| 12 | 设置弹窗功能 | 5484–5944 |
-| 13 | 书签功能 | 5945–end |
+Numbered banners `1、` … `13、`. Line numbers drift; grep the banner.
 
 ## Fork / Dia
 

@@ -1,4 +1,4 @@
-/** Selector contracts for adapter probes. Keep these strings in script.user.js. */
+/** Current Doubao/Qianwen page contracts for probes. Update here and in script.user.js when a site restyles. */
 export const siteAdapters = {
   doubao: {
     id: "doubao",
