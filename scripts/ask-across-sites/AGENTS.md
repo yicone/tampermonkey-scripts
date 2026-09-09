@@ -43,15 +43,15 @@ Login is only needed to verify a real send or chat history.
 
 Numbered banners `1、` … `13、`. Line numbers drift; grep the banner.
 
-## Fork / Dia / Greasy Fork
+## Publish
 
-Install `script.user.js` only. Never install `loader.user.js` in Dia or on Greasy Fork.
+Public listing: [595104 多站同问](https://greasyfork.org/scripts/595104). Do not publish `loader.user.js` or treat a local `script.user.js` as the install path.
 
-User-facing copy lives in the userscript header (`@description`, `@description:en`) and `greasyfork.md`. Keep the thanks to interest2 and the link to script `537302` there.
-
-Greasy Fork syncs from GitHub via webhook. After header or body changes that should go public: bump `@version`, commit, push `main`. Do not re-host `localhost` `@require` on Greasy Fork.
-
-Header edits (`@match`, `@grant`, `@name`, …) must be copied into `loader.user.js` and pushed with `--mode=loader`. Body edits do not.
+1. Verify in Ego (`npm test`, probe if selectors changed, real send only if that is what you changed).
+2. Bump `@version`. Keep `@downloadURL` / `@updateURL` on **595104**, never on upstream [537302](https://greasyfork.org/scripts/537302).
+3. User-facing copy: `@description` / `@description:en` and `greasyfork.md`. Keep the thanks to interest2 and the link to 537302.
+4. Header edits must be copied into `loader.user.js` (`<version>-dev`, localhost `@require`, no GF update URLs) and `--mode=loader`. Body-only edits do not.
+5. Commit and push `main`. The GitHub webhook updates Greasy Fork. Do not re-host `localhost` `@require` on Greasy Fork.
 
 ## Pitfalls
 

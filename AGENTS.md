@@ -1,16 +1,17 @@
 # Tampermonkey scripts
 
-Local `scripts/<id>/script.user.js` is the source of truth. Tampermonkey and Dia are runtimes. Do not edit large scripts in the Tampermonkey editor.
+Local `scripts/<id>/script.user.js` is the source of truth. Tampermonkey is a runtime. Do not edit large scripts in the Tampermonkey editor.
 
 This repo will hold scripts for different jobs. Keep site adapters, login needs, and probe details in `scripts/<id>/AGENTS.md`, not here.
 
-Do not use superpowers spec / plan / reviewer loops for ordinary script work. This repo is small: edit the file, verify in Ego Lite, install the complete file in Dia when ready.
+Do not use superpowers spec / plan / reviewer loops for ordinary script work. This repo is small: edit the file, verify in Ego Lite, push `main` so Greasy Fork updates.
 
 ## Layout
 
-- `scripts/<id>/script.user.js` — full userscript (also the Dia install file)
+- `scripts/<id>/script.user.js` — full userscript; Greasy Fork syncs this file
 - `scripts/<id>/loader.user.js` — Ego-only stub: full metadata header + `@require` local server. No app logic.
-- `scripts/<id>/AGENTS.md` — UUID, `@match`, boot log, pitfalls, tests for that script
+- `scripts/<id>/greasyfork.md` — optional additional info synced to the GF listing
+- `scripts/<id>/AGENTS.md` — UUID, `@match`, boot log, pitfalls, tests, GF id for that script
 - `scripts/<id>/lib/` — optional helpers for that script
 - `tools/serve.mjs` — static server
 - `tools/tm-push.sh` — write a file into Ego Tampermonkey
@@ -47,18 +48,23 @@ First time: `npm install`. Then run what that script's AGENTS.md lists (`npm tes
 - A probe checks page contracts (composer, send control). It must not send a real message unless that script's AGENTS.md says to.
 - Do not build a full live-site send matrix by default.
 
-## Dia publish
+## Publish (GitHub → Greasy Fork)
 
-Ego Lite is not the daily browser. Dia is. Never install `loader.user.js` in Dia. Do not drive Dia; give the user the path to `scripts/<id>/script.user.js`.
+Ego Lite is the debug browser. Public installs come from Greasy Fork, not from a file in this repo. Never put `loader.user.js` on Greasy Fork. Do not operate the user's non-Ego browsers to install or update scripts.
 
-1. Verify the change on the affected sites in Ego (tests/probe if the script has them, then a real send only if that is what you changed).
-2. Bump `@version`. For this repo's Greasy Fork listing, push `main`; the GitHub webhook updates the live script. Dia still installs `scripts/<id>/script.user.js` by hand. Do not put `@downloadURL` / `@updateURL` pointing at the *upstream* Greasy Fork script, or auto-update will overwrite the fork with interest2's original.
-3. Tell the user the path. They install or overwrite it in Dia's Tampermonkey.
+1. Verify on the affected sites in Ego (tests/probe if the script has them, then a real send only if that is what you changed).
+2. Bump `@version` in `script.user.js`. Keep `@downloadURL` / `@updateURL` on **this** script's Greasy Fork listing (id in that script's `AGENTS.md`). Never point them at an upstream listing, or Tampermonkey will auto-update into the original.
+3. Header edits (`@name`, `@match`, `@grant`, `@description`, update URLs): copy the full header into `loader.user.js`, set `@version` to `<version>-dev`, strip GF `@downloadURL` / `@updateURL`, add `@require http://127.0.0.1:17373/scripts/<id>/script.user.js`.
+4. Commit and push `main`. The GitHub `push` webhook updates Greasy Fork from the raw `script.user.js` URL.
+5. Tell the user the listing is updated. Do not re-install from disk.
+
+A script that has no Greasy Fork listing yet: import the GitHub raw `script.user.js` URL on Greasy Fork, then add a GitHub webhook as on https://greasyfork.org/zh-CN/users/webhook-info. Additional info can sync from `scripts/<id>/greasyfork.md`. First-time human install is the GF install link; later releases follow the webhook path above.
 
 ## Forbidden
 
 - Two enabled scripts with the same `@match` in one browser
-- Installing the localhost loader in Dia
+- Installing the localhost loader outside Ego Lite
+- Using a local `script.user.js` as the public install when that script already has a Greasy Fork listing
 - Using Tampermonkey's editor as the primary editor
 - Starting `serve.mjs` inside ego-browser
 - Treating `tm-push --mode=full` length mismatch as proof the save was dropped without reading the editor `@version`
