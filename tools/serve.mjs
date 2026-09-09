@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const PORT = 17373;
 const HOST = "127.0.0.1";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const PROBE = "/scripts/multi-model-answer/script.user.js";
+const PROBE = "/scripts/ask-across-sites/script.user.js";
 
 function contentType(filePath) {
   const ext = path.extname(filePath).toLowerCase();

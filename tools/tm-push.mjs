@@ -1,8 +1,9 @@
 const SCRIPTS = {
-  "multi-model-answer": {
+  "ask-across-sites": {
     uuid: "d4da46bf-fba2-4f71-b8fc-1cc535d49edb",
-    name: "多模型同时回答 & 目录导航",
-    dir: "scripts/multi-model-answer",
+    name: "多站同问",
+    nameAliases: ["多站同问", "Ask Across Sites", "多模型同时回答 & 目录导航"],
+    dir: "scripts/ask-across-sites",
   },
 };
 
@@ -13,7 +14,7 @@ const path = await import("node:path");
 
 const root = process.env.TM_PUSH_ROOT || process.cwd();
 const mode = process.env.TM_PUSH_MODE || "loader";
-const scriptId = process.env.TM_PUSH_SCRIPT || "multi-model-answer";
+const scriptId = process.env.TM_PUSH_SCRIPT || "ask-across-sites";
 const meta = SCRIPTS[scriptId];
 
 if (!meta) {
@@ -33,18 +34,18 @@ const page = task.page("p1");
 await page.goto(editorUrl);
 await page.waitForLoadState();
 await page.waitForFunction(
-  (expectedName) =>
+  (names) =>
     [...document.querySelectorAll(".CodeMirror")].some((el) => {
       const visible = el.offsetWidth > 0 && el.offsetHeight > 0;
       const value = el.CodeMirror && el.CodeMirror.getValue();
-      return visible && value && value.includes("@name") && value.includes(expectedName);
+      return visible && value && value.includes("@name") && names.some((n) => value.includes(n));
     }),
-  meta.name,
+  meta.nameAliases,
   { timeout: 15_000 },
 );
 
 const result = await page.evaluate(
-  ({ source, expectedName }) => {
+  ({ source, names }) => {
     const cms = [...document.querySelectorAll(".CodeMirror")]
       .map((el, index) => {
         const cm = el.CodeMirror;
@@ -54,7 +55,9 @@ const result = await page.evaluate(
       })
       .filter((item) => item.visible && item.value.startsWith("// ==UserScript=="));
 
-    const match = cms.find((item) => item.nameLine.includes(expectedName));
+    const match =
+      cms.find((item) => names.some((n) => item.nameLine.includes(n))) ||
+      cms.find((item) => !item.nameLine.includes("New Userscript"));
     if (!match) {
       return {
         ok: false,
@@ -71,7 +74,7 @@ const result = await page.evaluate(
     }
     return { ok: true, index: match.index, length: source.length };
   },
-  { source, expectedName: meta.name },
+  { source, names: meta.nameAliases },
 );
 
 if (!result.ok) {
@@ -115,13 +118,13 @@ await page.waitForTimeout(800);
 await page.reload();
 await page.waitForLoadState();
 await page.waitForFunction(
-  (expectedName) =>
+  (names) =>
     [...document.querySelectorAll(".CodeMirror")].some((el) => {
       const visible = el.offsetWidth > 0 && el.offsetHeight > 0;
       const value = el.CodeMirror && el.CodeMirror.getValue();
-      return visible && value && value.includes("@name") && value.includes(expectedName);
+      return visible && value && value.includes("@name") && names.some((n) => value.includes(n));
     }),
-  meta.name,
+  meta.nameAliases,
   { timeout: 15_000 },
 );
 

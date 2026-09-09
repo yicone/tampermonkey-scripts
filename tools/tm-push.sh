@@ -2,7 +2,7 @@
 set -e
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 MODE="loader"
-SCRIPT="multi-model-answer"
+SCRIPT="ask-across-sites"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -18,7 +18,7 @@ while [ "$#" -gt 0 ]; do
       ;;
     *)
       echo "unknown arg: $1" >&2
-      echo "usage: tools/tm-push.sh --mode=loader|full [--script=multi-model-answer]" >&2
+      echo "usage: tools/tm-push.sh --mode=loader|full [--script=ask-across-sites]" >&2
       exit 1
       ;;
   esac

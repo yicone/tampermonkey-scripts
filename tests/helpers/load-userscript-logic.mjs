@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { JSDOM } from "jsdom";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-export const USERSCRIPT_PATH = path.join(ROOT, "scripts/multi-model-answer/script.user.js");
+export const USERSCRIPT_PATH = path.join(ROOT, "scripts/ask-across-sites/script.user.js");
 
 export function extractTestableBlock(source) {
   const startMark = "// <testable-sync-logic>";

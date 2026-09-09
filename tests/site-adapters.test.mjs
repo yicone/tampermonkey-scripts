@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { describe, it } from "node:test";
-import { siteAdapters } from "../scripts/multi-model-answer/lib/site-adapters.mjs";
+import { siteAdapters } from "../scripts/ask-across-sites/lib/site-adapters.mjs";
 import { USERSCRIPT_PATH } from "./helpers/load-userscript-logic.mjs";
 
 describe("site adapter selectors stay in the userscript", () => {

@@ -1,9 +1,13 @@
 // ==UserScript==
-// @name         多模型同时回答 & 目录导航
-// @namespace    http://tampermonkey.net/
-// @version      5.2.6-local.9
-// @description  一键自动同时在各家大模型官网提问，免去复制粘贴的麻烦；提供历次提问、回答细节的目录导航，方便快速定位。支持范围：DS，Kimi，千问，豆包，元宝，ChatGPT，Gemini，Claude，Grok 等
-// @author       interest2
+// @name         多站同问
+// @name:en      Ask Across Sites
+// @namespace    https://github.com/yicone/tampermonkey-scripts
+// @version      1.0.0
+// @description  在多家对话 AI 官网同步提交同一句提问，并提供提问与回答的目录导航。感谢 interest2 的上游脚本「多模型同时回答 & 目录导航」：https://greasyfork.org/scripts/537302
+// @description:en Submit the same prompt across conversational AI sites, with a table of contents for questions and answers. Thanks to interest2's upstream script: https://greasyfork.org/scripts/537302
+// @author       yicone
+// @homepageURL  https://github.com/yicone/tampermonkey-scripts
+// @supportURL   https://github.com/yicone/tampermonkey-scripts/issues
 // @match        https://chat.deepseek.com/*
 // @match        https://www.kimi.com/*
 // @match        https://www.qianwen.com/*

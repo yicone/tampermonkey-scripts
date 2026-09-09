@@ -52,7 +52,7 @@ First time: `npm install`. Then run what that script's AGENTS.md lists (`npm tes
 Ego Lite is not the daily browser. Dia is. Never install `loader.user.js` in Dia. Do not drive Dia; give the user the path to `scripts/<id>/script.user.js`.
 
 1. Verify the change on the affected sites in Ego (tests/probe if the script has them, then a real send only if that is what you changed).
-2. Bump `@version` with a fork suffix (`5.2.6-local.1`). Strip `@downloadURL` and `@updateURL` so Greasy Fork cannot overwrite the fork.
+2. Bump `@version`. For this repo's Greasy Fork listing, push `main`; the GitHub webhook updates the live script. Dia still installs `scripts/<id>/script.user.js` by hand. Do not put `@downloadURL` / `@updateURL` pointing at the *upstream* Greasy Fork script, or auto-update will overwrite the fork with interest2's original.
 3. Tell the user the path. They install or overwrite it in Dia's Tampermonkey.
 
 ## Forbidden

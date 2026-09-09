@@ -7,7 +7,7 @@ if (!root) {
 }
 
 const { siteAdapters } = await import(
-  pathToFileURL(path.join(root, "scripts/multi-model-answer/lib/site-adapters.mjs")).href
+  pathToFileURL(path.join(root, "scripts/ask-across-sites/lib/site-adapters.mjs")).href
 );
 
 function fail(results, id, message, extra = {}) {

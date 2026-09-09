@@ -1,6 +1,6 @@
-# 多模型同时回答 & 目录导航
+# 多站同问 / Ask Across Sites
 
-Fork of Greasy Fork [537302](https://greasyfork.org/scripts/537302) by `interest2`. Baseline `5.2.6`. Directory id: `multi-model-answer`. Current fork version is the `@version` in `script.user.js`.
+Directory id: `ask-across-sites`. Fork of Greasy Fork [537302](https://greasyfork.org/scripts/537302) by `interest2`, baseline `5.2.6`. Public `@name` is `多站同问` with `@name:en Ask Across Sites`. Current version is the `@version` in `script.user.js`.
 
 `TONGYI` in code is `www.qianwen.com` (千问). `QWEN` is `chat.qwen.ai`.
 
@@ -9,8 +9,8 @@ Fork of Greasy Fork [537302](https://greasyfork.org/scripts/537302) by `interest
 - Extension: `dhdgffkkebhmkfjojejmpbldmpobfkfo`
 - Script UUID: `d4da46bf-fba2-4f71-b8fc-1cc535d49edb`
 - Editor: `chrome-extension://dhdgffkkebhmkfjojejmpbldmpobfkfo/options.html#nav=d4da46bf-fba2-4f71-b8fc-1cc535d49edb+editor`
-- Push: `tools/tm-push.sh --mode=loader|full --script=multi-model-answer`
-- Loader URL: `http://127.0.0.1:17373/scripts/multi-model-answer/script.user.js`
+- Push: `tools/tm-push.sh --mode=loader|full --script=ask-across-sites`
+- Loader URL: `http://127.0.0.1:17373/scripts/ask-across-sites/script.user.js`
 
 Replace this UUID in place with the loader. Do not install a second copy in Ego.
 
@@ -43,14 +43,19 @@ Login is only needed to verify a real send or chat history.
 
 Numbered banners `1、` … `13、`. Line numbers drift; grep the banner.
 
-## Fork / Dia
+## Fork / Dia / Greasy Fork
 
-Install `script.user.js` only. Use `@version` like `5.2.6-local.1`. Strip `@downloadURL` and `@updateURL` before the user installs in Dia, or Greasy Fork will overwrite the fork.
+Install `script.user.js` only. Never install `loader.user.js` in Dia or on Greasy Fork.
 
-Header edits (`@match`, `@grant`, …) must be copied into `loader.user.js` and pushed with `--mode=loader`. Body edits do not.
+User-facing copy lives in the userscript header (`@description`, `@description:en`) and `greasyfork.md`. Keep the thanks to interest2 and the link to script `537302` there.
+
+Greasy Fork syncs from GitHub via webhook. After header or body changes that should go public: bump `@version`, commit, push `main`. Do not re-host `localhost` `@require` on Greasy Fork.
+
+Header edits (`@match`, `@grant`, `@name`, …) must be copied into `loader.user.js` and pushed with `--mode=loader`. Body edits do not.
 
 ## Pitfalls
 
 - Master/slave and `GM_*` value listeners assume one enabled copy per browser. Two copies double-fire questions and TOC.
 - After `--mode=full`, local file edits will not hot-reload until `--mode=loader`. The persist-length check is flaky; confirm `@version` in the TM editor.
 - Do not load `markmap` unless turning `SHOW_MINDMAP_BTN` on (it is off in the header comments).
+- Tampermonkey matches the visible editor by `@name` (`多站同问`). An old tab still titled 多模型同时回答 needs a reload after the loader push.
